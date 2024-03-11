@@ -443,12 +443,26 @@ def run(meta, config, starting_noise=None):
     start = len( os.listdir(output_folder) )
     image_ids = list(range(start,start+config.batch_size))
     print(image_ids)
+    
     for image_id, sample in zip(image_ids, samples_fake):
-        img_name = str(int(image_id))+'.png'
+        img_name = str(int(image_id)) + '.png'
         sample = torch.clamp(sample, min=-1, max=1) * 0.5 + 0.5
-        sample = sample.cpu().numpy().transpose(1,2,0) * 255 
-        sample = Image.fromarray(sample.astype(np.uint8))
-        sample.save(  os.path.join(output_folder, img_name)   )
+        sample = sample.cpu().numpy().transpose(1, 2, 0) * 255
+        image = Image.fromarray(sample.astype(np.uint8))
+
+        # Assuming meta['locations'] is a list of bounding boxes for the current image, normalized
+        normalized_bboxes = meta['locations']  
+        print(f"normalized bboxes  : {normalized_bboxes}")
+        # Draw the bounding boxes on the image
+        draw = ImageDraw.Draw(image)
+        img_width, img_height = image.size
+        for box in normalized_bboxes:
+            # Scale the bounding box coordinates to the image size
+            scaled_box = [box[0] * img_width, box[1] * img_height, box[2] * img_width, box[3] * img_height]
+            draw.rectangle(scaled_box, outline='red')  # Draw with red line
+
+        # Save the image with bounding boxes
+        image.save(os.path.join(output_folder, img_name))
 
 
 
@@ -480,7 +494,7 @@ if __name__ == "__main__":
             #alpha_type = [0.3, 0.0, 0.7],
             prompt = "2 pigs moving around",
             phrases = ['a pig', 'a pig'],
-            locations = [ [0.0,0.09,0.33,0.76], [0.55,0.11,0.5,0.4]],
+            locations = [ [0.0,0.09,0.33,0.76], [0.5, 0.11, 0.55, 0.4]],
             alpha_type = [0.3, 0.0, 0.7],
             save_folder_name="generation_box_text"
         ), 
