@@ -85,3 +85,4 @@ target/
 lib/pycocotools/_mask.c
 lib/nms/cpu_nms.c
 
+generation_samples

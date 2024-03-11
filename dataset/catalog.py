@@ -98,6 +98,13 @@ class DatasetCatalog:
             ),
         }
 
+        self.efc20kDetection = {   
+            "target": "dataset.tsv_dataset.TSVDataset",
+            "train_params":dict(
+                tsv_path=os.path.join(ROOT,'/data/efc20k/tsv/train-00.tsv'),
+            ),
+        }
+
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 
 
