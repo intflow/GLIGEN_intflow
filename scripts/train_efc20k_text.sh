@@ -13,6 +13,7 @@ python main.py \
             --OUTPUT_ROOT=${output_root} \
             --name=${model_name} \
             --yaml_file=${yaml_name} \
-            --batch_size=8 \
+            --batch_size=16 \
             --workers=8 \
+            --base_learning_rate=4e-4 \
             --inpaint_mode=False  #--ckpt=${ckpt_name}
