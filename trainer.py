@@ -40,7 +40,7 @@ class ImageCaptionSaver:
     def __call__(self, images, real, masked_real, captions, seen):
         
         save_path = os.path.join(self.base_path, str(seen).zfill(8)+'.png')
-        torchvision.utils.save_image( images, save_path, nrow=self.nrow, normalize=self.normalize, scale_each=self.scale_each, range=self.range )
+        torchvision.utils.save_image( images, save_path, nrow=self.nrow, normalize=self.normalize, scale_each=self.scale_each )
         
         save_path = os.path.join(self.base_path, str(seen).zfill(8)+'_real.png')
         torchvision.utils.save_image( real, save_path, nrow=self.nrow)

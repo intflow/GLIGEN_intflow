@@ -273,7 +273,7 @@ if __name__ == "__main__":
     import argparse
     import math
     parser = argparse.ArgumentParser()
-    parser.add_argument("--which_dataset", type=str, default="grounding", help="grounding is for GoldG, CC3M, SBU etc, detection is for O365")
+    parser.add_argument("--which_dataset", type=str, default="detection", help="grounding is for GoldG, CC3M, SBU etc, detection is for O365")
     parser.add_argument("--chunk_idx", type=int, default=0)
     parser.add_argument("--total_chunk", type=int, default=1)
     parser.add_argument("--image_root", type=str)
@@ -313,7 +313,11 @@ if __name__ == "__main__":
     # json_path = "/nobackup2/yuheng-data/diffusion_few_shot/DATA/OBJECTS365/instances_train.json"  # json annotation used by my normal dataset
     # annotation_embedding_path = "/nobackup2/yuheng-data/diffusion_few_shot/DATA/OBJECTS365/embedding_clip" # it must contain 'image_features' and 'text_features'
     # tsv_path = f"/nobackup3/yuheng-data/diffusion_few_shot/DATA/OBJECTS365/tsv/train-{args.chunk_idx:02d}.tsv"
-
+    
+    image_root = "/data/efc20k/image"  # path to image zip file or a image folder 
+    json_path = "/data/efc20k/json/annotation.json"  # json annotation used by my normal dataset
+    annotation_embedding_path = "/data/efc20k/embedding_clip" # it must contain 'image_features' and 'text_features'
+    tsv_path = f"/data/efc20k/tsv/train-{args.chunk_idx:02d}.tsv"
 
     if args.which_dataset == "grounding":
         dataset = GroundingDataset(image_root,json_path, annotation_embedding_path)

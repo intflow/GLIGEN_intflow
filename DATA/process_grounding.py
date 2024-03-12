@@ -174,11 +174,12 @@ class GroundedTextImageDataset_Grounding(Base):
         image = self.fetch_image(file_name)
         image_crop = self.preprocess(  image.crop( (X,Y,X+W,Y+H) ).resize( (224,224), Image.BICUBIC )  )
 
-        positive = ''
-        for (start, end) in anno['tokens_positive']:
-            positive += caption[start:end]
-            positive += ' '       
-        positive = positive[:-1]
+        ##positive = ''
+        ##for (start, end) in anno['tokens_positive']:
+        ##    positive += caption[start:end]
+        ##    positive += ' '       
+        ##positive = positive[:-1]
+        positive = caption[9:-14]
 
         return {'positive':positive,  'anno_id':anno_id, 'image_crop':image_crop}
        
@@ -285,9 +286,9 @@ if __name__ == "__main__":
     parser.add_argument("--only_after", type=bool, default=False, help='if false, then both before and after projection CLIP feature will be saved')
     parser.add_argument("--chunk_idx", type=int, default=None)
     parser.add_argument("--total_chunk", type=int, default=None)
-    parser.add_argument("--json_path", type=str,  default="../../DATA/LAION-HAOTIAN-DOWNLOAD-TEST/laion_1142.json", help="")
-    parser.add_argument("--image_root", type=str,  default="../../DATA/LAION-HAOTIAN-DOWNLOAD-TEST/", help="")
-    parser.add_argument("--folder", type=str,  default="out", help="")
+    parser.add_argument("--json_path", type=str,  default="/data/efc20k/json/annotation_caption.json", help="")
+    parser.add_argument("--image_root", type=str,  default="/data/efc20k/image/", help="")
+    parser.add_argument("--folder", type=str,  default="/data/efc20k/embedding_clip", help="")
     args = parser.parse_args()
 
 

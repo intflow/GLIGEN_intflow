@@ -326,7 +326,7 @@ class BasicTransformerBlock(nn.Module):
     def forward(self, x, context, objs):
 #        return checkpoint(self._forward, (x, context, objs), self.parameters(), self.use_checkpoint)
         if self.use_checkpoint and x.requires_grad:
-            return checkpoint.checkpoint(self._forward, x, context, objs)
+            return checkpoint.checkpoint(self._forward, x, context, objs, use_reentrant=False)
         else:
             return self._forward(x, context, objs)
 
