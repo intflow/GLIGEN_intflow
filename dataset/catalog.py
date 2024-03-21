@@ -105,7 +105,7 @@ class DatasetCatalog:
             ),
         }
 
-
+        
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 
 
         self.COCO2017Keypoint = {   
@@ -117,6 +117,14 @@ class DatasetCatalog:
             ),
         }
 
+        self.BBoxKeypoint = {   
+            "target": "dataset.dataset_kp.BBoxKeypointDataset",
+            "train_params":dict(
+                image_root = os.path.join(ROOT,'/data/efc20k/image/'),
+                keypoints_json_path = os.path.join(ROOT,'/data/efc20k/json/annotation.json'),
+                caption_json_path = os.path.join(ROOT,'/data/efc20k/json/updated_annotation.json'),
+            ),
+        }
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 
 

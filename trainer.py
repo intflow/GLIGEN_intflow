@@ -6,6 +6,8 @@ import numpy as np
 import random
 import time 
 from dataset.concat_dataset import ConCatDataset #, collate_fn
+from dataset.bbox_kpoint_dataset import BBoxKeypointDataset
+from dataset.dataset_kp import KeypointDataset
 from torch.utils.data.distributed import  DistributedSampler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -271,7 +273,9 @@ class Trainer:
 
         # = = = = = = = = = = = = = = = = = = = = create data = = = = = = = = = = = = = = = = = = = = #  
         train_dataset_repeats = config.train_dataset_repeats if 'train_dataset_repeats' in config else None
-        dataset_train = ConCatDataset(config.train_dataset_names, config.DATA_ROOT, train=True, repeats=train_dataset_repeats)
+        dataset_train = BBoxKeypointDataset(image_root = os.path.join(config.DATA_ROOT,'/data/efc20k/image/'),
+                                            keypoints_json_path = os.path.join(config.DATA_ROOT,'/data/efc20k/json/annotation.json'),
+                                            caption_json_path = os.path.join(config.DATA_ROOT,'/data/efc20k/json/updated_annotation.json') ) 
         sampler = DistributedSampler(dataset_train, seed=config.seed) if config.distributed else None 
         loader_train = DataLoader( dataset_train,  batch_size=config.batch_size, 
                                                    shuffle=(sampler is None),

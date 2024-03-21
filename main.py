@@ -14,13 +14,13 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--DATA_ROOT", type=str,  default="DATA", help="path to DATA")
-    parser.add_argument("--OUTPUT_ROOT", type=str,  default="OUTPUT", help="path to OUTPUT")
+    parser.add_argument("--DATA_ROOT", type=str,  default="/data/DATA", help="path to DATA")
+    parser.add_argument("--OUTPUT_ROOT", type=str,  default="/data/OUTPUT", help="path to OUTPUT")
 
-    parser.add_argument("--name", type=str,  default="test", help="experiment will be stored in OUTPUT_ROOT/name")
+    parser.add_argument("--name", type=str,  default="test5", help="experiment will be stored in OUTPUT_ROOT/name")
     parser.add_argument("--seed", type=int,  default=123, help="used in sampler")
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--yaml_file", type=str,  default="configs/flickr.yaml", help="paths to base configs.")
+    parser.add_argument("--yaml_file", type=str,  default="configs/bbox_kpoint_combined.yaml", help="paths to base configs.")
 
 
     parser.add_argument("--base_learning_rate", type=float,  default=5e-5, help="")
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--warmup_steps", type=int,  default=10000, help="")
     parser.add_argument("--scheduler_type", type=str,  default='constant', help="cosine or constant")
     parser.add_argument("--batch_size", type=int,  default=2, help="")
-    parser.add_argument("--workers", type=int,  default=1, help="")
+    parser.add_argument("--workers", type=int,  default=0, help="")
     parser.add_argument("--official_ckpt_name", type=str,  default="sd-v1-4.ckpt", help="SD ckpt name and it is expected in DATA_ROOT, thus DATA_ROOT/official_ckpt_name must exists")
     parser.add_argument("--ckpt", type=lambda x:x if type(x) == str and x.lower() != "none" else None,  default=None, 
         help=("If given, then it will start training from this ckpt"
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--enable_ema', default=False, type=lambda x:x.lower() == "true")
     parser.add_argument("--ema_rate", type=float,  default=0.9999, help="")
     parser.add_argument("--total_iters", type=int,  default=500000, help="")
-    parser.add_argument("--save_every_iters", type=int,  default=5000, help="")
+    parser.add_argument("--save_every_iters", type=int,  default=1, help="")
     parser.add_argument("--disable_inference_in_training", type=lambda x:x.lower() == "true",  default=False, help="Do not do inference, thus it is faster to run first a few iters. It may be useful for debugging ")
 
 
