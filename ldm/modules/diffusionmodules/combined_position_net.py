@@ -31,7 +31,7 @@ class CombinedPositionNet(nn.Module):
         self.null_box_feature = torch.nn.Parameter(torch.zeros([self.box_position_dim]))
         self.null_kp_feature = torch.nn.Parameter(torch.zeros([self.kp_position_dim]))
 
-    def forward(self, boxes, points, masks, positive_embeddings):
+    def forward(self, boxes, points, masks): #positive_embedding for each category can be added!
         B, N, _ = boxes.shape
         masks = masks.unsqueeze(-1)
 
@@ -40,17 +40,17 @@ class CombinedPositionNet(nn.Module):
         kp_embedding = self.fourier_embedder(points)   # Adjust dimensions if necessary
 
         # Null embeddings for padding
-        positive_null = self.null_positive_feature.view(1, 1, -1)
+        # positive_null = self.null_positive_feature.view(1, 1, -1)
         box_null = self.null_box_feature.view(1, 1, -1)
         kp_null = self.null_kp_feature.view(1, 1, -1)
 
         # Replace padding with null embeddings
-        positive_embeddings = positive_embeddings * masks + (1 - masks) * positive_null
-        box_embedding = box_embedding * masks + (1 - masks) * box_null
+        # positive_embeddings = positive_embeddings * masks + (1 - masks) * positive_null
+        # box_embedding = box_embedding * masks + (1 - masks) * box_null
         kp_embedding = kp_embedding * masks + (1 - masks) * kp_null
 
         # Concatenate all embeddings
-        combined_embedding = torch.cat([positive_embeddings, box_embedding, kp_embedding], dim=-1)
+        combined_embedding = torch.cat([box_embedding, kp_embedding], dim=-1) # positive_embedding can be combined here!
         objs = self.linears(combined_embedding)
         assert objs.shape == torch.Size([B, N, self.out_dim])
         return objs

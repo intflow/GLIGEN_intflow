@@ -208,7 +208,7 @@ class BBoxKeypointDataset(BaseDataset):
 		out["points"] = points
 		out["masks"] = masks
 		out["bboxes"] = bboxes  # Include bboxes in the output
-
+		
 		
 		return out 
 

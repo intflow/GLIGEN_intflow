@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--DATA_ROOT", type=str,  default="/data/DATA", help="path to DATA")
     parser.add_argument("--OUTPUT_ROOT", type=str,  default="/data/OUTPUT", help="path to OUTPUT")
 
-    parser.add_argument("--name", type=str,  default="test5", help="experiment will be stored in OUTPUT_ROOT/name")
+    parser.add_argument("--name", type=str,  default="test2", help="experiment will be stored in OUTPUT_ROOT/name")
     parser.add_argument("--seed", type=int,  default=123, help="used in sampler")
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--yaml_file", type=str,  default="configs/bbox_kpoint_combined.yaml", help="paths to base configs.")
