@@ -105,6 +105,12 @@ class DatasetCatalog:
             ),
         }
 
+        self.efc20kDetection_keyp = {   
+            "target": "dataset.tsv_keyp_dataset.TSVDataset",
+            "train_params":dict(
+                tsv_path=os.path.join(ROOT,'/data/efc20k/tsv/train-00.tsv'),
+            ),
+        }
         
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 
 
@@ -114,15 +120,6 @@ class DatasetCatalog:
                 image_root = os.path.join(ROOT,'COCO/images'),
                 keypoints_json_path = os.path.join(ROOT,'COCO/annotations2017/person_keypoints_train2017.json'),
                 caption_json_path = os.path.join(ROOT,'COCO/annotations2017/captions_train2017.json'),
-            ),
-        }
-
-        self.BBoxKeypoint = {   
-            "target": "dataset.dataset_kp.BBoxKeypointDataset",
-            "train_params":dict(
-                image_root = os.path.join(ROOT,'/data/efc20k/image/'),
-                keypoints_json_path = os.path.join(ROOT,'/data/efc20k/json/annotation.json'),
-                caption_json_path = os.path.join(ROOT,'/data/efc20k/json/updated_annotation.json'),
             ),
         }
 

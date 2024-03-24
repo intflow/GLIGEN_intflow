@@ -23,11 +23,13 @@ model:
     use_checkpoint: True
 
     grounding_tokenizer:
-      target: ldm.modules.diffusionmodules.combined_position_net.CombinedPositionNet
+      target: ldm.modules.diffusionmodules.text_keyp_grounding_net.PositionNet
       params:
+        max_boxes_per_data: 50 # must same as the one in dataset   
         in_dim: 768 # this is pre-processing feature dim from CLIP Text encoder; penultimate feature  
         out_dim: 768 # Not constrained to this, as one linear project is appiled at each Gated layer to match visual dimension 
-        max_persons_per_image: 8
+        num_kp: 9 # Number of keypoint. must same as the one in dataset  
+
 
 autoencoder:
   target: ldm.models.autoencoder.AutoencoderKL
@@ -55,15 +57,18 @@ text_encoder:
   target: ldm.modules.encoders.modules.FrozenCLIPEmbedder
 
 
+
+
 train_dataset_names: 
-  efc20kDetection:
+  efc20kDetection_keyp:
     which_layer_text: before
     image_size: 512
     max_boxes_per_data: 50
     prob_use_caption: 0.5 
     random_crop: False
     random_flip: True
+    num_kp: 9
 
 
 grounding_tokenizer_input:
-  target: grounding_input.bbox_and_keypoint_together_input.GroundingNetInput
+  target: grounding_input.text_keyp_grounding_tokinizer_input.GroundingNetInput

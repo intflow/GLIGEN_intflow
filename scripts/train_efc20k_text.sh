@@ -3,8 +3,8 @@
 
 data_root="/data/GLIGEN_DATA"
 output_root="/data/GLIGEN_OUTPUT"
-model_name="efc20k_text"
-yaml_name="configs/efc20k_text.yaml"
+model_name="efc20k_text_keyp"
+yaml_name="configs/efc20k_text_keyp.yaml"
 #ckpt_name="/data/gligen_checkpoints/checkpoint_generation_text.pth"
 
 

@@ -6,7 +6,6 @@ import numpy as np
 import random
 import time 
 from dataset.concat_dataset import ConCatDataset #, collate_fn
-from dataset.bbox_kpoint_dataset import BBoxKeypointDataset
 from dataset.dataset_kp import KeypointDataset
 from torch.utils.data.distributed import  DistributedSampler
 from torch.utils.data import DataLoader
@@ -271,11 +270,9 @@ class Trainer:
 
 
 
-        # = = = = = = = = = = = = = = = = = = = = create data = = = = = = = = = = = = = = = = = = = = #  
+        # = = = = = = = = = = = = = = = = = = = = create data = = = = = = = = = = = = = = = = = = = = #   
         train_dataset_repeats = config.train_dataset_repeats if 'train_dataset_repeats' in config else None
-        dataset_train = BBoxKeypointDataset(image_root = os.path.join(config.DATA_ROOT,'/data/efc20k/image/'),
-                                            keypoints_json_path = os.path.join(config.DATA_ROOT,'/data/efc20k/json/annotation.json'),
-                                            caption_json_path = os.path.join(config.DATA_ROOT,'/data/efc20k/json/updated_annotation.json') ) 
+        dataset_train = ConCatDataset(config.train_dataset_names, config.DATA_ROOT, train=True, repeats=train_dataset_repeats) 
         sampler = DistributedSampler(dataset_train, seed=config.seed) if config.distributed else None 
         loader_train = DataLoader( dataset_train,  batch_size=config.batch_size, 
                                                    shuffle=(sampler is None),
@@ -429,12 +426,19 @@ class Trainer:
             
             if "boxes" in batch:
                 real_images_with_box_drawing = [] # we save this durining trianing for better visualization
-                for i in range(batch_here):
-                    temp_data = {"image": batch["image"][i], "boxes":batch["boxes"][i]}
-                    im = self.dataset_train.datasets[0].vis_getitem_data(out=temp_data, return_tensor=True, print_caption=False)
-                    real_images_with_box_drawing.append(im)
+
+                if "points" in batch:
+                    for i in range(batch_here):
+                        temp_data = {"image": batch["image"][i], "boxes":batch["boxes"][i], "points":batch["points"][i]}
+                        im = self.dataset_train.datasets[0].vis_getitem_data(out=temp_data, return_tensor=True, print_caption=False)
+                        real_images_with_box_drawing.append(im)
+                else:
+                    for i in range(batch_here):
+                        temp_data = {"image": batch["image"][i], "boxes":batch["boxes"][i]}
+                        im = self.dataset_train.datasets[0].vis_getitem_data(out=temp_data, return_tensor=True, print_caption=False)
+                        real_images_with_box_drawing.append(im)
                 real_images_with_box_drawing = torch.stack(real_images_with_box_drawing)
-            else:
+            else :
                 # keypoint case 
                 real_images_with_box_drawing = batch["image"]*0.5 + 0.5 
                 
