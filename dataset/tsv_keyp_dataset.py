@@ -26,7 +26,7 @@ def decode_base64_to_pillow(image_b64):
 def decode_tensor_from_string(arr_str, use_tensor=True):
     arr = np.frombuffer(base64.b64decode(arr_str), dtype='float32')
     if use_tensor:
-        arr = torch.from_numpy(arr)
+        arr = torch.from_numpy(arr.copy())
     return arr
 
 def decode_item(item):
@@ -312,23 +312,27 @@ class TSVDataset(BaseDataset):
         masks = torch.zeros(self.max_boxes_per_data)
         text_embeddings = torch.zeros(self.max_boxes_per_data, self.embedding_len)
         image_embeddings = torch.zeros(self.max_boxes_per_data, self.embedding_len)
-        points = torch.zeros(self.max_boxes_per_data*self.num_kp,2)
-        kp_masks = torch.zeros(self.max_boxes_per_data*self.num_kp)
+        points = torch.zeros(self.max_boxes_per_data, 2*self.num_kp)
+        kp_masks = torch.zeros(self.max_boxes_per_data, self.num_kp)
 
         if is_det:
             category_names = []
-        k = 0
+        point_tmp = torch.zeros(2*self.num_kp)
+        kp_mask_tmp = torch.zeros(self.num_kp)
         for i, idx in enumerate(wanted_idxs):
             boxes[i] = all_boxes[idx]
             masks[i] = all_masks[idx]
             text_embeddings[i] = all_text_embeddings[idx]
             image_embeddings[i] = all_image_embeddings[idx]
             kps = all_kps[idx]
-            for kp in kps:
-                points[k] = torch.tensor( kp['loc'] )
-                kp_masks[k] = 1 if kp["valid"] else 0 
-                k += 1
+
+            for k, kp in enumerate(kps):
+                point_tmp[2*k:2*k+2] = torch.tensor( kp['loc'] )
+                kp_mask_tmp[k] = 1 if kp["valid"] else 0 
             
+            points[i] = point_tmp
+            kp_masks[i] = kp_mask_tmp
+
             if is_det:
                 category_names.append(all_category_names[idx])
 

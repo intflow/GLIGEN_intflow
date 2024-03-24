@@ -14,8 +14,8 @@ if __name__ == "__main__":
     multiprocessing.set_start_method('spawn')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--DATA_ROOT", type=str,  default="/data/DATA", help="path to DATA")
-    parser.add_argument("--OUTPUT_ROOT", type=str,  default="/data/OUTPUT", help="path to OUTPUT")
+    parser.add_argument("--DATA_ROOT", type=str,  default="/data/GLIGEN_DATA", help="path to DATA")
+    parser.add_argument("--OUTPUT_ROOT", type=str,  default="/data/GLIGEN_OUTPUT", help="path to OUTPUT")
 
     parser.add_argument("--name", type=str,  default="efc20k_text_keyp", help="experiment will be stored in OUTPUT_ROOT/name")
     parser.add_argument("--seed", type=int,  default=123, help="used in sampler")

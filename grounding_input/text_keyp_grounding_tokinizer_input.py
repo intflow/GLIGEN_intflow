@@ -2,8 +2,9 @@ import os
 import torch as th
 
 class GroundingNetInput:
-    def __init__(self):
+    def __init__(self, num_kp=9):
         self.set = False
+        self.num_kp = num_kp
 
     def prepare(self, batch):
         """
@@ -41,7 +42,7 @@ class GroundingNetInput:
         masks = th.zeros(batch, self.max_box).type(dtype).to(device)
         positive_embeddings = th.zeros(batch, self.max_box, self.in_dim).type(dtype).to(device)
 
-        points = th.zeros(batch, self.max_box*9, 2).to(device) 
-        kp_masks = th.zeros(batch, self.max_box*9).to(device) 
+        points = th.zeros(batch, self.max_box, 2*self.num_kp).to(device) 
+        kp_masks = th.zeros(batch, self.max_box, self.num_kp).to(device) 
 
         return {"boxes": boxes, "masks": masks, "positive_embeddings": positive_embeddings, "points": points, "kp_masks": kp_masks}

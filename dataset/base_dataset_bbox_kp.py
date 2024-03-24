@@ -34,19 +34,21 @@ def draw_box(img, boxes):
         # draw.rectangle([box[0], box[1], box[2], box[3]], outline ="red", width=2) # x0 y0 x1 y1 
     return img 
 
-def draw_points(img, points):
+def draw_points(img, points, W, H):
+    N, K = points.shape
+    num_kp = int(K*0.5)
     colors = ["red", "yellow", "blue", "green", "orange", "brown", "cyan", "purple", "deeppink", "coral", "gold", "darkblue", "khaki", "lightgreen", "snow", "yellowgreen", "lime"]
-    colors = colors * 100
+    colors = colors[:num_kp]
     draw = ImageDraw.Draw(img)
     
     r = 3
-    for point, color in zip(points, colors):
-        if point[0] == point[1] == 0:
-            pass 
-        else:
-            x, y = float(point[0]), float(point[1])
-            draw.ellipse( [ (x-r,y-r), (x+r,y+r) ], fill=color   )
-        # draw.rectangle([box[0], box[1], box[2], box[3]], outline ="red", width=2) # x0 y0 x1 y1 
+    for point in points:
+        for k in range(0,num_kp):
+            if point[2*k] == point[2*k+1] == 0:
+                pass 
+            else:
+                x, y = float(point[2*k]*W), float(point[2*k+1]*H)
+                draw.ellipse( [ (x-r,y-r), (x+r,y+r) ], fill=colors[k])
     return img 
 
 
@@ -168,8 +170,7 @@ class BaseDataset(torch.utils.data.Dataset):
             x0,y0,x1,y1 = box
             boxes.append( [float(x0*W), float(y0*H), float(x1*W), float(y1*H)] )
         img = draw_box(img, boxes)
-        
-        draw_points( canvas, out["points"]*W ).save(name)   
+        img = draw_points( img, out["points"], W, H )   
         
         if return_tensor:
             return  torchvision.transforms.functional.to_tensor(img)

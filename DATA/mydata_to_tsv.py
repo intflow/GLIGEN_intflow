@@ -315,7 +315,7 @@ if __name__ == "__main__":
     # tsv_path = f"/nobackup3/yuheng-data/diffusion_few_shot/DATA/OBJECTS365/tsv/train-{args.chunk_idx:02d}.tsv"
     
     image_root = "/data/efc20k/image"  # path to image zip file or a image folder 
-    json_path = "/data/efc20k/json/annotation.json"  # json annotation used by my normal dataset
+    json_path = "/data/efc20k/json/annotation_caption.json"  # json annotation used by my normal dataset
     annotation_embedding_path = "/data/efc20k/embedding_clip" # it must contain 'image_features' and 'text_features'
     tsv_path = f"/data/efc20k/tsv/train-{args.chunk_idx:02d}.tsv"
 

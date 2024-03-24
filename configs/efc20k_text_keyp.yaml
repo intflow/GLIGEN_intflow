@@ -72,3 +72,5 @@ train_dataset_names:
 
 grounding_tokenizer_input:
   target: grounding_input.text_keyp_grounding_tokinizer_input.GroundingNetInput
+  params:
+    num_kp: 9 # Number of keypoint. must same as the one in dataset  
