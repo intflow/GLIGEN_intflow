@@ -16,4 +16,6 @@ python main.py \
             --batch_size=16 \
             --workers=8 \
             --base_learning_rate=4e-4 \
+            --total_iters=500000 \
+            --save_every_iters=5000 \
             --inpaint_mode=False  #--ckpt=${ckpt_name}
