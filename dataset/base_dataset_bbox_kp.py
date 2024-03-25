@@ -128,6 +128,16 @@ def recalculate_box_kps_and_verify_if_valid(x, y, w, h, kps, trans_info, image_s
                     kp_x, kp_y = kp["loc"] 
                     kp["loc"] = [image_size-kp_x, kp_y]
 
+            # Add swap for the mirror position
+            kp_L = [6]
+            kp_R = [7]
+            for kp_L_idx, kp_L_sub in enumerate(kp_L):
+                kp_tmp = kps[kp_L_sub].copy()
+                kps[kp_L_sub]['loc'] = kps[kp_R[kp_L_idx]]['loc']
+                kps[kp_L_sub]['valid'] = kps[kp_R[kp_L_idx]]['valid']
+                kps[kp_R[kp_L_idx]]['loc'] = kp_tmp['loc']
+                kps[kp_R[kp_L_idx]]['valid'] = kp_tmp['valid']
+
     return valid, (x0, y0, x1, y1), kps
 
 
