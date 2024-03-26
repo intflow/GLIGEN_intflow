@@ -88,6 +88,9 @@ def recalculate_box_and_verify_if_valid(x, y, w, h, trans_info, image_size, min_
 
 
 
+
+
+
 class BaseDataset(torch.utils.data.Dataset):
     def __init__(self, random_crop, random_flip, image_size):
         super().__init__() 
