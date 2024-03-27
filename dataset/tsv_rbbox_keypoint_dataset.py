@@ -1,4 +1,4 @@
-from tkinter.messagebox import NO
+
 import torch 
 import json 
 from collections import defaultdict
@@ -7,7 +7,8 @@ from copy import deepcopy
 import os 
 import torchvision.transforms as transforms
 import torchvision
-from .base_dataset import BaseDataset, check_filenames_in_zipdata, recalculate_box_and_verify_if_valid  
+from .base_dataset import BaseDataset, check_filenames_in_zipdata, recalculate_box_and_verify_if_valid
+from .base_dataset_rbbox_kp import recalculate_rbbox_kps_and_verify_if_valid  
 from io import BytesIO
 import random
 
@@ -225,29 +226,29 @@ class TSVDataset(BaseDataset):
 
     def __getitem__(self, index):
         if self.max_boxes_per_data > 99:
-            assert False, "Are you sure setting such large number of boxes per image?"
+            assert False, "Are you sure setting such a large number of boxes per image?"
 
         raw_item = self.get_item_from_tsv(index)
-        is_det = raw_item.get('is_det', False) # if it is from detection (such as o365), then we will make a pseudo caption
+        is_det = raw_item.get('is_det', False)  # if it is from detection (such as o365), then we will make a pseudo caption
 
         out = {}
 
-        # -------------------- id and image ------------------- # 
+        # -------------------- id and image ------------------- #
         out['id'] = raw_item['data_id']
         image = raw_item['image']
         image_tensor, trans_info = self.transform_image(image)
         out["image"] = image_tensor
 
-
-
-        # -------------------- grounding token ------------------- # 
+        # -------------------- grounding token ------------------- #
         annos = raw_item['annos']
-        
+
         areas = []
         all_boxes = []
+        all_rbboxes = []
         all_masks = []
         all_text_embeddings = []
         all_image_embeddings = []
+        all_kps = []  # Store keypoints here
         if is_det:
             all_category_names = []
 
@@ -255,33 +256,57 @@ class TSVDataset(BaseDataset):
         image_embedding_name = 'image_embedding_after'
 
         for anno in annos:
-            x, y, w, h = anno['bbox']
-            valid, (x0, y0, x1, y1) = recalculate_box_and_verify_if_valid(x, y, w, h, trans_info, self.image_size, self.min_box_size)
+            cx, cy, w, h, angle = anno['rbbox']
+            kps = self.clean_kps( anno['keypoints'] )
+
+            valid, (cx0, cy0, w0, h0, angle0), kps = recalculate_rbbox_kps_and_verify_if_valid(cx, cy, w, h, angle, kps, trans_info, self.image_size, self.min_box_size)
 
             if valid:
-                areas.append(  (x1-x0)*(y1-y0)  )
-                all_boxes.append( torch.tensor([x0,y0,x1,y1]) / self.image_size ) # scale to 0-1
+                areas.append(w0 * h0) # Area calculated basically w * h
+                
+                # Cener points, width and height is normalized by image size
+                normalized_cx = cx0 / self.image_size
+                normalized_cy = cy0 / self.image_size
+                normalized_w = w0 / self.image_size
+                normalized_h = h0 / self.image_size
+                # Normalized rbbox values and angle value append to all_rbboxes 
+                all_rbboxes.append(torch.tensor([normalized_cx, normalized_cy, normalized_w, normalized_h, angle0])) 
                 all_masks.append(1)
                 all_text_embeddings.append(anno[text_embedding_name])
-                all_image_embeddings.append(  self.mapping(anno[image_embedding_name])  )
+                all_image_embeddings.append(self.mapping(anno[image_embedding_name]))
+                all_kps.append(self.norm_kps(kps, self.image_size))  # scale to 0-1
                 if is_det:
                     all_category_names.append(anno["category_name"])
 
-        # Sort according to area and choose the largest N objects   
+        # Sort according to area and choose the largest N objects
         wanted_idxs = torch.tensor(areas).sort(descending=True)[1]
-        wanted_idxs = wanted_idxs[0:self.max_boxes_per_data]
+        wanted_idxs = wanted_idxs[:self.max_boxes_per_data]
 
-        boxes = torch.zeros(self.max_boxes_per_data, 4)
+        rbboxes = torch.zeros(self.max_boxes_per_data, 5)
         masks = torch.zeros(self.max_boxes_per_data)
-        text_embeddings =  torch.zeros(self.max_boxes_per_data, self.embedding_len)
+        text_embeddings = torch.zeros(self.max_boxes_per_data, self.embedding_len)
         image_embeddings = torch.zeros(self.max_boxes_per_data, self.embedding_len)
+        points = torch.zeros(self.max_boxes_per_data, 2*self.num_kp)
+        kp_masks = torch.zeros(self.max_boxes_per_data, self.num_kp)
+
         if is_det:
             category_names = []
+        point_tmp = torch.zeros(2*self.num_kp)
+        kp_mask_tmp = torch.zeros(self.num_kp)
         for i, idx in enumerate(wanted_idxs):
-            boxes[i] = all_boxes[idx]
+            rbboxes[i] = all_rbboxes[idx]
             masks[i] = all_masks[idx]
-            text_embeddings[i] =  all_text_embeddings[idx]
+            text_embeddings[i] = all_text_embeddings[idx]
             image_embeddings[i] = all_image_embeddings[idx]
+            kps = all_kps[idx]
+
+            for k, kp in enumerate(kps):
+                point_tmp[2*k:2*k+2] = torch.tensor( kp['loc'] )
+                kp_mask_tmp[k] = 1 if kp["valid"] else 0 
+            
+            points[i] = point_tmp
+            kp_masks[i] = kp_mask_tmp
+
             if is_det:
                 category_names.append(all_category_names[idx])
 
@@ -291,17 +316,17 @@ class TSVDataset(BaseDataset):
             image_masks = masks
             text_masks = masks
 
+        out["rbboxes"] = rbboxes # normalized cx, cy, w0, h0 and angle value will added
+        out["masks"] = masks  # indicating how many valid objects for this image-text data
+        out["image_masks"] = image_masks  # indicating how many objects still there after random dropping applied
+        out["text_masks"] = text_masks  # indicating how many objects still there after random dropping applied
+        out["text_embeddings"] = text_embeddings
+        out["image_embeddings"] = image_embeddings
+        out["points"] = points
+        out["kp_masks"] = kp_masks
 
-        out["boxes"] = boxes
-        out["masks"] = masks # indicating how many valid objects for this image-text data
-        out["image_masks"] = image_masks # indicating how many objects still there after random dropping applied
-        out["text_masks"] = text_masks # indicating how many objects still there after random dropping applied
-        out["text_embeddings"] =  text_embeddings  
-        out["image_embeddings"] = image_embeddings      
-        
 
-
-        # -------------------- caption ------------------- # 
+        # -------------------- caption ------------------- #
         if random.uniform(0, 1) < self.prob_use_caption:
             if is_det:
                 out["caption"] = make_a_sentence(category_names)

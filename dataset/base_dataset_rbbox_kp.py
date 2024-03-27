@@ -1,3 +1,4 @@
+from pickle import FALSE
 import torch 
 from PIL import Image, ImageDraw
 import torchvision.transforms as transforms
@@ -25,7 +26,37 @@ def check_filenames_in_zipdata(filenames, ziproot):
     samples = set(samples)
     assert filenames.issubset(samples), 'Something wrong with your zip data'
 
+def rotated_rectangle_to_polygon(cx, cy, w, h, theta, W, H):
+    """Convert a rotated rectangle specified by a center point, width, height, and rotation (in radians)
+    into the four corners of the rectangle."""
+    cx *= W
+    cy *= H
+    w *= W
+    h *= H
 
+    dx = w / 2
+    dy = h / 2
+
+    cos_angle = math.cos(theta)
+    sin_angle = math.sin(theta)
+
+    # Compute the four corners in clockwise order
+    corners = []
+    for corner in [(dx, dy), (-dx, dy), (-dx, -dy), (dx, -dy)]:
+        x, y = corner
+        corners.append((cx + (x * cos_angle - y * sin_angle), cy + (x * sin_angle + y * cos_angle)))
+
+    return sum(corners, ())  # Flatten the list of tuples
+
+
+def draw_rbbox(img, rbboxes, W, H):
+    colors = ["red", "olive", "blue", "green", "orange", "brown", "cyan", "purple"]
+    draw = ImageDraw.Draw(img)
+    for bid, rbbox in enumerate(rbboxes):
+        cx, cy, w, h, theta = rbbox
+        box = rotated_rectangle_to_polygon(cx, cy, w, h, theta, W, H)
+        draw.polygon(box, outline=colors[bid % len(colors)], width=4)
+    return img
 
 def draw_box(img, boxes):
     colors = ["red", "olive", "blue", "green", "orange", "brown", "cyan", "purple"]
@@ -36,57 +67,182 @@ def draw_box(img, boxes):
     return img 
 
 
+def draw_points(img, points, W, H):
+    N, K = points.shape
+    num_kp = int(K*0.5)
+    colors = ["red", "yellow", "blue", "green", "orange", "brown", "cyan", "purple", "deeppink", "coral", "gold", "darkblue", "khaki", "lightgreen", "snow", "yellowgreen", "lime"]
+    colors = colors[:num_kp]
+    draw = ImageDraw.Draw(img)
+    
+    r = 3
+    for point in points:
+        for k in range(0,num_kp):
+            if point[2*k] == point[2*k+1] == 0:
+                pass 
+            else:
+                x, y = float(point[2*k]*W), float(point[2*k+1]*H)
+                draw.ellipse( [ (x-r,y-r), (x+r,y+r) ], fill=colors[k])
+    return img 
 
-def to_valid(x0, y0, x1, y1, image_size, min_box_size):
+
+
+def to_valid(x0, y0, x1, y1, kps, image_size, min_box_size):
     valid = True
 
+    # ---------------- check if box still exist ------------------- # 
     if x0>image_size or y0>image_size or x1<0 or y1<0:
         valid = False # no way to make this box vide, it is completely cropped out 
-        return valid, (None, None, None, None)
+        return valid, (None,None,None,None), None
 
+
+    # ---------------- check if box too small ------------------- # 
     x0 = max(x0, 0)
     y0 = max(y0, 0)
     x1 = min(x1, image_size)
     y1 = min(y1, image_size)
-
     if (x1-x0)*(y1-y0) / (image_size*image_size) < min_box_size:
         valid = False
-        return valid, (None, None, None, None)
-     
-    return valid, (x0, y0, x1, y1)
+        return valid, (None,None,None,None), None
+
+
+    # ---------------- check if all pts exists ------------------- # 
+    for kp in kps:
+        if kp["valid"]:
+            kp_x, kp_y = kp["loc"] 
+            if kp_x<0 or kp_x>image_size or kp_y<0 or kp_y>image_size: # this kp was cropped out
+                kp['valid'] = False
+                kp["loc"] = [0,0]
+
+    if all([ not kp["valid"] for kp in kps  ]):
+        valid = False # all kps were cropped but box is still valid (It's unlikely though)
+        return valid, (None,None,None,None), None
+
+
+    return valid, (x0, y0, x1, y1), kps
+
+def to_valid_rbbox(scaled_cx, scaled_cy, scaled_w, scaled_h, adjusted_angle, kps, image_size, min_box_size):
+    valid = True
+
+    # Check if the center of the box is still within the image
+    if not (0 <= scaled_cx <= image_size and 0 <= scaled_cy <= image_size):
+        return False, (None, None, None, None, None)
+
+    # Check if the box is too small
+    if scaled_w * scaled_h / (image_size * image_size) < min_box_size:
+        return False, (None, None, None, None, None)
+
+    # ---------------- check if all pts exists ------------------- # 
+    for kp in kps:
+        if kp["valid"]:
+            kp_x, kp_y = kp["loc"] 
+            if kp_x<0 or kp_x>image_size or kp_y<0 or kp_y>image_size: # this kp was cropped out
+                kp['valid'] = False
+                kp["loc"] = [0,0]
+
+    if all([ not kp["valid"] for kp in kps  ]):
+        valid = False # all kps were cropped but box is still valid (It's unlikely though)
+        return valid, (None,None,None,None, None), None
+
+
+    return valid, (scaled_cx, scaled_cy, scaled_w, scaled_h, adjusted_angle), kps
 
 
 
-
-
-def recalculate_box_and_verify_if_valid(x, y, w, h, trans_info, image_size, min_box_size):
+def recalculate_box_kps_and_verify_if_valid(x, y, w, h, kps, trans_info, image_size, min_box_size):
     """
-    x,y,w,h:  the original annotation corresponding to the raw image size.
+    box [x,y,w,h]:  the original annotation corresponding to the raw image size.
+    kpts: the origianl labled visible kpts 
     trans_info: what resizing and cropping have been applied to the raw image 
     image_size:  what is the final image size  
     """
-
     x0 = x * trans_info["performed_scale"] - trans_info['crop_x'] 
     y0 = y * trans_info["performed_scale"] - trans_info['crop_y'] 
     x1 = (x + w) * trans_info["performed_scale"] - trans_info['crop_x'] 
     y1 = (y + h) * trans_info["performed_scale"] - trans_info['crop_y'] 
 
 
+    for kp in kps:
+        if kp["valid"]:
+            kp_x, kp_y = kp["loc"] 
+            kp_x = kp_x * trans_info["performed_scale"] - trans_info['crop_x']
+            kp_y = kp_y * trans_info["performed_scale"] - trans_info['crop_y'] 
+            kp["loc"] = [kp_x, kp_y]
+               
+
     # at this point, box annotation has been recalculated based on scaling and cropping
     # but some point may fall off the image_size region (e.g., negative value), thus we 
     # need to clamp them into 0-image_size. But if all points falling outsize of image 
     # region, then we will consider this is an invalid box. 
-    valid, (x0, y0, x1, y1) = to_valid(x0, y0, x1, y1, image_size, min_box_size)
+    valid, (x0, y0, x1, y1), kps = to_valid(x0, y0, x1, y1, kps, image_size, min_box_size)
 
     if valid:
         # we also perform random flip. 
         # Here boxes are valid, and are based on image_size 
         if trans_info["performed_flip"]:
             x0, x1 = image_size-x1, image_size-x0
+            for kp in kps:
+                if kp["valid"]:
+                    kp_x, kp_y = kp["loc"] 
+                    kp["loc"] = [image_size-kp_x, kp_y]
 
-    return valid, (x0, y0, x1, y1)
+    return valid, (x0, y0, x1, y1), kps
 
 
+def recalculate_rbbox_kps_and_verify_if_valid(cx, cy, w, h, angle, kps, trans_info, image_size, min_box_size):
+    """
+    rbbox [cx,cy,w,h, angle]:  the original annotation corresponding to the raw image size.
+    kpts: the origianl labled visible kpts 
+    trans_info: what resizing and cropping have been applied to the raw image 
+    image_size:  what is the final image size  
+    """
+    # Scale the center point
+    scaled_cx = cx * trans_info["performed_scale"] - trans_info['crop_x']
+    scaled_cy = cy * trans_info["performed_scale"] - trans_info['crop_y']
+    
+    # Scale width and height
+    scaled_w = w * trans_info["performed_scale"]
+    scaled_h = h * trans_info["performed_scale"]
+
+    # Adjust angle for horizontal flip
+    if trans_info["performed_flip"]:
+        adjusted_angle = -angle  # Assuming angle in degrees
+    else:
+        adjusted_angle = angle
+
+    for kp in kps:
+        if kp["valid"]:
+            kp_x, kp_y = kp["loc"] 
+            kp_x = kp_x * trans_info["performed_scale"] - trans_info['crop_x']
+            kp_y = kp_y * trans_info["performed_scale"] - trans_info['crop_y'] 
+            kp["loc"] = [kp_x, kp_y]
+               
+
+    # at this point, box annotation has been recalculated based on scaling and cropping
+    # but some point may fall off the image_size region (e.g., negative value), thus we 
+    # need to clamp them into 0-image_size. But if all points falling outsize of image 
+    # region, then we will consider this is an invalid box. 
+    valid, (cx, cy, w, h, angle), kps = to_valid_rbbox(scaled_cx, scaled_cy, scaled_w, scaled_h, adjusted_angle, kps, image_size, min_box_size)
+    
+
+    # CHECK THE PERFORMED FLIP RESULT
+    if valid and trans_info["performed_flip"]:
+        # Mirror the center x-coordinate
+        flipped_cx = image_size - scaled_cx
+
+        # Adjust the angle for the flip
+        # Assuming angle increases clockwise and 0 degrees is rightward
+        flipped_angle = (360 - adjusted_angle) % 360
+
+        # Update keypoints if present
+        for kp in kps:
+            if kp["valid"]:
+                kp_x, kp_y = kp["loc"]
+                kp["loc"] = [image_size - kp_x, kp_y]  # Mirror the x-coordinate of keypoints
+
+        # Ensure to update the rbbox parameters with the flipped ones
+        cx, angle = flipped_cx, flipped_angle
+
+    return valid, (cx, cy, w, h, angle), kps
 
 
 
@@ -110,7 +266,6 @@ class BaseDataset(torch.utils.data.Dataset):
         zip_file = self.zip_dict[pid]
         return zip_file
 
-
     def vis_getitem_data(self, index=None, out=None, return_tensor=False, name="res.jpg", print_caption=True):
     
         if out is None:
@@ -125,17 +280,23 @@ class BaseDataset(torch.utils.data.Dataset):
             print(caption)
             print(" ")
 
-        boxes = []
-        for box in out["boxes"]:    
-            x0,y0,x1,y1 = box
-            boxes.append( [float(x0*W), float(y0*H), float(x1*W), float(y1*H)] )
-        img = draw_box(img, boxes)
-        
+        # boxes = []
+        # for box in out["boxes"]:    
+        #     x0,y0,x1,y1 = box
+        #     boxes.append( [float(x0*W), float(y0*H), float(x1*W), float(y1*H)] )
+        # img = draw_box(img, boxes)
+        # img = draw_points( img, out["points"], W, H )   
+        rbboxes = []
+        for rbbox in out["rbbox"]:
+            cx, cy, w, h, theta = rbbox
+            rbboxes.append([cx, cy, w, h, theta])
+        img = draw_rbbox(img, rbboxes, W, H)
+        img = draw_points( img, out["points"], W, H )   
+
         if return_tensor:
             return  torchvision.transforms.functional.to_tensor(img)
         else:
-            img.save(name)   
-
+            img.save(name)  
 
     def transform_image(self, pil_image):
         if self.random_crop:
