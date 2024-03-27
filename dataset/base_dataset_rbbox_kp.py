@@ -125,11 +125,11 @@ def to_valid_rbbox(scaled_cx, scaled_cy, scaled_w, scaled_h, adjusted_angle, kps
 
     # Check if the center of the box is still within the image
     if not (0 <= scaled_cx <= image_size and 0 <= scaled_cy <= image_size):
-        return False, (None, None, None, None, None)
+        return False, (None, None, None, None, None), None
 
     # Check if the box is too small
     if scaled_w * scaled_h / (image_size * image_size) < min_box_size:
-        return False, (None, None, None, None, None)
+        return False, (None, None, None, None, None), None
 
     # ---------------- check if all pts exists ------------------- # 
     for kp in kps:

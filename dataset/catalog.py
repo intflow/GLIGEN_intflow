@@ -109,6 +109,14 @@ class DatasetCatalog:
                 caption_json_path = os.path.join(ROOT,'COCO/annotations2017/captions_train2017.json'),
             ),
         }
+        # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 
+
+        self.efc20kDetection_rbbox = {   
+            "target": "dataset.tsv_rbbox_keypoint_dataset.TSVDataset",
+            "train_params":dict(
+                tsv_path=os.path.join(ROOT,'/data/efc20k/tsv/train-00.tsv'),
+            ),
+        }
 
 
         # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - # 

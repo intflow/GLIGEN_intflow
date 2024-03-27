@@ -174,6 +174,7 @@ class TSVDataset(BaseDataset):
                 max_images=None, # set as 30K used to eval
                 random_crop = False,
                 random_flip = True,
+                num_kp=9,
                 ):
         super().__init__(random_crop, random_flip, image_size)
         self.tsv_path = tsv_path
@@ -184,6 +185,7 @@ class TSVDataset(BaseDataset):
         self.min_box_size = min_box_size
         self.max_boxes_per_data = max_boxes_per_data
         self.max_images = max_images
+        self.num_kp = num_kp
 
         assert which_layer_text in ['before','after']
         assert which_layer_image in ['after', 'after_renorm', 'after_reproject']
@@ -222,6 +224,26 @@ class TSVDataset(BaseDataset):
             image_embedding = image_embedding / image_embedding.norm() 
             image_embedding = image_embedding * 28.7 
             return image_embedding
+
+    def clean_kps(self, kps):
+        assert len(kps) == 27
+        out = []
+        kps_np = np.array(kps).reshape(self.num_kp,3)
+        for idx, kp in enumerate(kps_np):
+            name = "kp"+str(idx).zfill(2)
+            loc = [kp[0], kp[1]]
+            valid = True if kp[2] == 2 else False 
+            if not valid:
+                loc = [0,0]
+            out.append(  {"name":name, "loc":loc, "valid":valid}          )
+        return out
+    
+    def norm_kps(self, kps, image_size):
+        for kp in kps:
+            if kp["valid"]:
+                kp_x, kp_y = kp["loc"] 
+                kp["loc"] = [ kp_x/image_size, kp_y/image_size ]
+        return kps
 
 
     def __getitem__(self, index):

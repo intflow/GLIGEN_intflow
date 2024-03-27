@@ -10,6 +10,7 @@ from torch.utils.data.distributed import  DistributedSampler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import os 
+import cv2
 import shutil
 import torchvision
 from convert_ckpt import add_additional_channels
@@ -121,6 +122,26 @@ def count_params(params):
 def update_ema(target_params, source_params, rate=0.99):
     for targ, src in zip(target_params, source_params):
         targ.detach().mul_(rate).add_(src, alpha=1 - rate)
+
+
+def draw_rbboxes_on_image(image, rbboxes):
+    # Convert PyTorch tensor image to numpy array for cv2 compatibility
+    image_np = (image.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+    rbboxes = rbboxes.cpu().numpy()
+    for rbbox in rbboxes:
+        # Extract rbbox parameters
+        cx, cy, w, h, angle = rbbox
+        # OpenCV expects angle in degrees
+        angle = np.degrees(angle)
+        # Calculate the four vertices of the rotated bbox
+        rect = ((cx, cy), (w, h), angle)
+        box = cv2.boxPoints(rect).astype(np.int32)
+        # Ensure the image array is contiguous before drawing contours
+        image_np_contiguous = np.ascontiguousarray(image_np)
+        # Draw the rbbox on the image
+        image_np = cv2.drawContours(image_np_contiguous, [box], 0, (0, 255, 0), 2)
+    # Convert back to tensor and scale to [0,1]
+    return torch.tensor(image_np.transpose(2, 0, 1) / 255.0, dtype=torch.float).to(image.device)
 
            
 def create_expt_folder_with_auto_resuming(OUTPUT_ROOT, name):
@@ -370,7 +391,15 @@ class Trainer:
 
         return loss 
         
-
+    def draw_rbboxes_on_image(image, rbboxes):
+        image = (image.cpu().numpy() * 255).astype(np.uint8).transpose(1, 2, 0)  # Assuming PyTorch tensor format
+        for rbbox in rbboxes:
+            cx, cy, w, h, angle = rbbox
+            # Calculate rectangle vertices
+            rect = ((cx, cy), (w, h), np.degrees(angle))
+            box = cv2.boxPoints(rect).astype(np.int0)
+            image = cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
+        return torch.from_numpy(image.transpose(2, 0, 1)) / 255.  # Convert back to tensor
 
     def start_training(self):
 
@@ -383,14 +412,14 @@ class Trainer:
             batch = next(self.loader_train)
             batch_to_device(batch, self.device)
 
-            loss = self.run_one_step(batch)
-            loss.backward()
-            self.opt.step() 
-            self.scheduler.step()
-            if self.config.enable_ema:
-                update_ema(self.ema_params, self.master_params, self.config.ema_rate)
+            # loss = self.run_one_step(batch)
+            # loss.backward()
+            # self.opt.step() 
+            # self.scheduler.step()
+            # if self.config.enable_ema:
+            #     update_ema(self.ema_params, self.master_params, self.config.ema_rate)
 
-
+            self.save_ckpt_and_result()
             if (get_rank() == 0):
                 if (iter_idx % 10 == 0):
                     self.log_loss() 
@@ -408,14 +437,14 @@ class Trainer:
         for k, v in self.loss_dict.items():
             self.writer.add_scalar(  k, v, self.iter_idx+1  )  # we add 1 as the actual name
     
-
+    
     @torch.no_grad()
     def save_ckpt_and_result(self):
 
         model_wo_wrapper = self.model.module if self.config.distributed else self.model
 
         iter_name = self.iter_idx + 1     # we add 1 as the actual name
-
+        real_images_with_box_drawing = torch.tensor([])
         if not self.config.disable_inference_in_training:
             # Do an inference on one training batch 
             batch_here = self.config.batch_size
@@ -430,6 +459,13 @@ class Trainer:
                     im = self.dataset_train.datasets[0].vis_getitem_data(out=temp_data, return_tensor=True, print_caption=False)
                     real_images_with_box_drawing.append(im)
                 real_images_with_box_drawing = torch.stack(real_images_with_box_drawing)
+            elif "rbboxes" in batch:
+                real_images_with_rbbox_drawing = []
+                for i in range(batch_here):
+                    # Draw rbboxes on images
+                    im = draw_rbboxes_on_image(batch["image"][i], batch["rbboxes"][i])
+                    real_images_with_rbbox_drawing.append(im)
+                real_images_with_rbbox_drawing = torch.stack(real_images_with_rbbox_drawing)
             else:
                 # keypoint case 
                 real_images_with_box_drawing = batch["image"]*0.5 + 0.5 
