@@ -9,7 +9,11 @@ import multiprocessing
 import math
 import numpy as np
 import random 
+<<<<<<< HEAD
 import cv2
+=======
+
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
 VALID_IMAGE_TYPES = ['.jpg', '.jpeg', '.tiff', '.bmp', '.png']
 
@@ -35,7 +39,11 @@ def rotated_rectangle_to_polygon(cx, cy, w, h, theta, W, H):
     h *= H
 
     dx = w / 2
+<<<<<<< HEAD
     dy = h / 2 
+=======
+    dy = h / 2
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
     cos_angle = math.cos(theta)
     sin_angle = math.sin(theta)
@@ -50,6 +58,7 @@ def rotated_rectangle_to_polygon(cx, cy, w, h, theta, W, H):
 
 
 def draw_rbbox(img, rbboxes, W, H):
+<<<<<<< HEAD
     colors = [(0, 0, 255), (0, 128, 128), (255, 0, 0), (0, 255, 0),
               (0, 165, 255), (42, 42, 165), (255, 255, 0), (128, 0, 128)]
     
@@ -85,6 +94,16 @@ def get_xy_point(rbbox, W, H):
     corners = np.matmul(R, (corners - cents).transpose(1, 0)).transpose(1, 0) + cents
     return corners
 
+=======
+    colors = ["red", "olive", "blue", "green", "orange", "brown", "cyan", "purple"]
+    draw = ImageDraw.Draw(img)
+    for bid, rbbox in enumerate(rbboxes):
+        cx, cy, w, h, theta = rbbox
+        box = rotated_rectangle_to_polygon(cx, cy, w, h, theta, W, H)
+        draw.polygon(box, outline=colors[bid % len(colors)], width=4)
+    return img
+
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 def draw_box(img, boxes):
     colors = ["red", "olive", "blue", "green", "orange", "brown", "cyan", "purple"]
     draw = ImageDraw.Draw(img)
@@ -96,6 +115,7 @@ def draw_box(img, boxes):
 
 def draw_points(img, points, W, H):
     N, K = points.shape
+<<<<<<< HEAD
     num_kp = int(K / 2)
     colors = [(0, 0, 255), (0, 255, 255), (255, 0, 0), (0, 255, 0),
               (0, 165, 255), (42, 42, 165), (255, 255, 0), (128, 0, 128),
@@ -112,6 +132,22 @@ def draw_points(img, points, W, H):
             cv2.circle(img, (x, y), 3, colors[k], -1)  # -1 fills the circle
     return img
 
+=======
+    num_kp = int(K*0.5)
+    colors = ["red", "yellow", "blue", "green", "orange", "brown", "cyan", "purple", "deeppink", "coral", "gold", "darkblue", "khaki", "lightgreen", "snow", "yellowgreen", "lime"]
+    colors = colors[:num_kp]
+    draw = ImageDraw.Draw(img)
+    
+    r = 3
+    for point in points:
+        for k in range(0,num_kp):
+            if point[2*k] == point[2*k+1] == 0:
+                pass 
+            else:
+                x, y = float(point[2*k]*W), float(point[2*k+1]*H)
+                draw.ellipse( [ (x-r,y-r), (x+r,y+r) ], fill=colors[k])
+    return img 
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
 
 
@@ -154,11 +190,19 @@ def to_valid_rbbox(scaled_cx, scaled_cy, scaled_w, scaled_h, adjusted_angle, kps
 
     # Check if the center of the box is still within the image
     if not (0 <= scaled_cx <= image_size and 0 <= scaled_cy <= image_size):
+<<<<<<< HEAD
         return False, (None, None, None, None, None), None
 
     # Check if the box is too small
     if scaled_w * scaled_h / (image_size * image_size) < min_box_size:
         return False, (None, None, None, None, None), None
+=======
+        return False, (None, None, None, None, None)
+
+    # Check if the box is too small
+    if scaled_w * scaled_h / (image_size * image_size) < min_box_size:
+        return False, (None, None, None, None, None)
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
     # ---------------- check if all pts exists ------------------- # 
     for kp in kps:
@@ -295,6 +339,7 @@ class BaseDataset(torch.utils.data.Dataset):
         zip_file = self.zip_dict[pid]
         return zip_file
 
+<<<<<<< HEAD
     # def vis_getitem_data(self, index=None, out=None, return_tensor=False, name="res.jpg", print_caption=True):
     
     #     if out is None:
@@ -335,11 +380,23 @@ class BaseDataset(torch.utils.data.Dataset):
         img_np = ((out["image"]*0.5+0.5).permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
         img_np = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
         
+=======
+    def vis_getitem_data(self, index=None, out=None, return_tensor=False, name="res.jpg", print_caption=True):
+    
+        if out is None:
+            out = self[index]
+
+        img = torchvision.transforms.functional.to_pil_image( out["image"]*0.5+0.5 )
+        canvas = torchvision.transforms.functional.to_pil_image( torch.ones_like(out["image"]) )
+        W, H = img.size
+
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
         if print_caption:
             caption = out["caption"]
             print(caption)
             print(" ")
 
+<<<<<<< HEAD
         # Assuming W, H can be derived directly from the image tensor
         H, W = img_np.shape[:2]
         
@@ -355,6 +412,25 @@ class BaseDataset(torch.utils.data.Dataset):
             return torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
         else:
             cv2.imwrite(name, img_np)
+=======
+        # boxes = []
+        # for box in out["boxes"]:    
+        #     x0,y0,x1,y1 = box
+        #     boxes.append( [float(x0*W), float(y0*H), float(x1*W), float(y1*H)] )
+        # img = draw_box(img, boxes)
+        # img = draw_points( img, out["points"], W, H )   
+        rbboxes = []
+        for rbbox in out["rbbox"]:
+            cx, cy, w, h, theta = rbbox
+            rbboxes.append([cx, cy, w, h, theta])
+        img = draw_rbbox(img, rbboxes, W, H)
+        img = draw_points( img, out["points"], W, H )   
+
+        if return_tensor:
+            return  torchvision.transforms.functional.to_tensor(img)
+        else:
+            img.save(name)  
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
     def transform_image(self, pil_image):
         if self.random_crop:

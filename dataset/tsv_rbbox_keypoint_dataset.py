@@ -7,7 +7,12 @@ from copy import deepcopy
 import os 
 import torchvision.transforms as transforms
 import torchvision
+<<<<<<< HEAD
 from .base_dataset_rbbox_kp import BaseDataset, check_filenames_in_zipdata, recalculate_rbbox_kps_and_verify_if_valid
+=======
+from .base_dataset import BaseDataset, check_filenames_in_zipdata, recalculate_box_and_verify_if_valid
+from .base_dataset_rbbox_kp import recalculate_rbbox_kps_and_verify_if_valid  
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 from io import BytesIO
 import random
 
@@ -25,7 +30,10 @@ def decode_base64_to_pillow(image_b64):
 def decode_tensor_from_string(arr_str, use_tensor=True):
     arr = np.frombuffer(base64.b64decode(arr_str), dtype='float32')
     if use_tensor:
+<<<<<<< HEAD
         arr = np.copy(arr)
+=======
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
         arr = torch.from_numpy(arr)
     return arr
 
@@ -174,7 +182,10 @@ class TSVDataset(BaseDataset):
                 max_images=None, # set as 30K used to eval
                 random_crop = False,
                 random_flip = True,
+<<<<<<< HEAD
                 num_kp=9,
+=======
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
                 ):
         super().__init__(random_crop, random_flip, image_size)
         self.tsv_path = tsv_path
@@ -185,7 +196,10 @@ class TSVDataset(BaseDataset):
         self.min_box_size = min_box_size
         self.max_boxes_per_data = max_boxes_per_data
         self.max_images = max_images
+<<<<<<< HEAD
         self.num_kp = num_kp
+=======
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
         assert which_layer_text in ['before','after']
         assert which_layer_image in ['after', 'after_renorm', 'after_reproject']
@@ -225,6 +239,7 @@ class TSVDataset(BaseDataset):
             image_embedding = image_embedding * 28.7 
             return image_embedding
 
+<<<<<<< HEAD
     def clean_kps(self, kps):
         assert len(kps) == 27
         out = []
@@ -245,6 +260,8 @@ class TSVDataset(BaseDataset):
                 kp["loc"] = [ kp_x/image_size, kp_y/image_size ]
         return kps
 
+=======
+>>>>>>> 121384c21c7be07787f3bd89302b043b247ec57e
 
     def __getitem__(self, index):
         if self.max_boxes_per_data > 99:
