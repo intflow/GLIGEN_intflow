@@ -41,7 +41,7 @@ class ImageCaptionSaver:
     def __call__(self, images, real, masked_real, captions, seen):
         
         save_path = os.path.join(self.base_path, str(seen).zfill(8)+'.png')
-        torchvision.utils.save_image( images, save_path, nrow=self.nrow, normalize=self.normalize, scale_each=self.scale_each, range=self.range )
+        torchvision.utils.save_image( images, save_path, nrow=self.nrow, normalize=self.normalize, scale_each=self.scale_each )
         
         save_path = os.path.join(self.base_path, str(seen).zfill(8)+'_real.png')
         torchvision.utils.save_image( real, save_path, nrow=self.nrow)
@@ -123,26 +123,35 @@ def update_ema(target_params, source_params, rate=0.99):
     for targ, src in zip(target_params, source_params):
         targ.detach().mul_(rate).add_(src, alpha=1 - rate)
 
-
 def draw_rbboxes_on_image(image, rbboxes):
-    # Convert PyTorch tensor image to numpy array for cv2 compatibility
-    image_np = (image.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
-    rbboxes = rbboxes.cpu().numpy()
-    for rbbox in rbboxes:
+    image_np = (image.cpu().numpy() * 255).astype(np.uint8).transpose(1, 2, 0)  # Assuming PyTorch tensor format
+    height, width = image.shape[1], image.shape[2]
+    
+    # Make sure the array is contiguous as required by OpenCV functions
+    image_np = np.ascontiguousarray(image_np)
+
+    for rbbox in rbboxes.cpu().numpy():  # Move the rbboxes to CPU and convert to numpy
         # Extract rbbox parameters
         cx, cy, w, h, angle = rbbox
-        # OpenCV expects angle in degrees
-        angle = np.degrees(angle)
-        # Calculate the four vertices of the rotated bbox
-        rect = ((cx, cy), (w, h), angle)
-        box = cv2.boxPoints(rect).astype(np.int32)
-        # Ensure the image array is contiguous before drawing contours
-        image_np_contiguous = np.ascontiguousarray(image_np)
-        # Draw the rbbox on the image
-        image_np = cv2.drawContours(image_np_contiguous, [box], 0, (0, 255, 0), 2)
-    # Convert back to tensor and scale to [0,1]
-    return torch.tensor(image_np.transpose(2, 0, 1) / 255.0, dtype=torch.float).to(image.device)
+        # Scale center coordinates
+        cx_pixel = cx * width
+        cy_pixel = cy * height
 
+        # Scale width and height
+        w_pixel = w * width
+        h_pixel = h * height
+
+        # Convert angle from radians to degrees if necessary
+        angle_degrees = np.degrees(angle)  # Only if 'angle' is originally in radians
+        # Calculate the four vertices of the rotated bbox
+        rect = ((cx_pixel, cy_pixel), (w_pixel, h_pixel), angle_degrees)
+        box = cv2.boxPoints(rect).astype(np.int32)
+        # Draw the rotated bounding box
+        image_np = cv2.drawContours(image_np, [box], 0, (0, 255, 0), 2)
+    
+    # Convert back to tensor, ensure correct data type, and rescale to [0,1]
+    image_tensor = torch.from_numpy(image_np.transpose(2, 0, 1)).float() / 255.0
+    return image_tensor
            
 def create_expt_folder_with_auto_resuming(OUTPUT_ROOT, name):
     name = os.path.join( OUTPUT_ROOT, name )
@@ -391,16 +400,7 @@ class Trainer:
 
         return loss 
         
-    def draw_rbboxes_on_image(image, rbboxes):
-        image = (image.cpu().numpy() * 255).astype(np.uint8).transpose(1, 2, 0)  # Assuming PyTorch tensor format
-        for rbbox in rbboxes:
-            cx, cy, w, h, angle = rbbox
-            # Calculate rectangle vertices
-            rect = ((cx, cy), (w, h), np.degrees(angle))
-            box = cv2.boxPoints(rect).astype(np.int0)
-            image = cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
-        return torch.from_numpy(image.transpose(2, 0, 1)) / 255.  # Convert back to tensor
-
+    
     def start_training(self):
 
         iterator = tqdm(range(self.starting_iter, self.config.total_iters), desc='Training progress',  disable=get_rank() != 0 )
@@ -412,14 +412,14 @@ class Trainer:
             batch = next(self.loader_train)
             batch_to_device(batch, self.device)
 
-            # loss = self.run_one_step(batch)
-            # loss.backward()
-            # self.opt.step() 
-            # self.scheduler.step()
-            # if self.config.enable_ema:
-            #     update_ema(self.ema_params, self.master_params, self.config.ema_rate)
+            loss = self.run_one_step(batch)
+            loss.backward()
+            self.opt.step() 
+            self.scheduler.step()
+            if self.config.enable_ema:
+                update_ema(self.ema_params, self.master_params, self.config.ema_rate)
 
-            self.save_ckpt_and_result()
+            
             if (get_rank() == 0):
                 if (iter_idx % 10 == 0):
                     self.log_loss() 
@@ -451,6 +451,7 @@ class Trainer:
             batch = sub_batch( next(self.loader_train), batch_here)
             batch_to_device(batch, self.device)
 
+            print(f" BID : {batch['id']} ")
             
             if "boxes" in batch:
                 real_images_with_box_drawing = [] # we save this durining trianing for better visualization
@@ -463,7 +464,10 @@ class Trainer:
                 real_images_with_rbbox_drawing = []
                 for i in range(batch_here):
                     # Draw rbboxes on images
-                    im = draw_rbboxes_on_image(batch["image"][i], batch["rbboxes"][i])
+                    
+                    temp_data = {"image": batch["image"][i], "rbboxes":batch["rbboxes"][i],  "points":batch["points"][i]}
+                    im = self.dataset_train.datasets[0].vis_getitem_data(out=temp_data, return_tensor=True, print_caption=False)
+                    
                     real_images_with_rbbox_drawing.append(im)
                 real_images_with_rbbox_drawing = torch.stack(real_images_with_rbbox_drawing)
             else:
@@ -503,7 +507,7 @@ class Trainer:
             samples = torch.clamp(samples, min=-1, max=1)
 
             masked_real_image =  batch["image"]*torch.nn.functional.interpolate(inpainting_mask, size=(512, 512)) if self.config.inpaint_mode else None
-            self.image_caption_saver(samples, real_images_with_box_drawing,  masked_real_image, batch["caption"], iter_name)
+            self.image_caption_saver(samples, real_images_with_rbbox_drawing,  masked_real_image, batch["caption"], iter_name)
 
         ckpt = dict(model = model_wo_wrapper.state_dict(),
                     text_encoder = self.text_encoder.state_dict(),

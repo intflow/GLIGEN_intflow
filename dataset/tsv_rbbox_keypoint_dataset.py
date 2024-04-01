@@ -7,8 +7,7 @@ from copy import deepcopy
 import os 
 import torchvision.transforms as transforms
 import torchvision
-from .base_dataset import BaseDataset, check_filenames_in_zipdata, recalculate_box_and_verify_if_valid
-from .base_dataset_rbbox_kp import recalculate_rbbox_kps_and_verify_if_valid  
+from .base_dataset_rbbox_kp import BaseDataset, check_filenames_in_zipdata, recalculate_rbbox_kps_and_verify_if_valid
 from io import BytesIO
 import random
 
@@ -26,6 +25,7 @@ def decode_base64_to_pillow(image_b64):
 def decode_tensor_from_string(arr_str, use_tensor=True):
     arr = np.frombuffer(base64.b64decode(arr_str), dtype='float32')
     if use_tensor:
+        arr = np.copy(arr)
         arr = torch.from_numpy(arr)
     return arr
 

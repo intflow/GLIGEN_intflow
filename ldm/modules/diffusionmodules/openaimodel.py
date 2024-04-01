@@ -204,7 +204,7 @@ class ResBlock(TimestepBlock):
         #     self._forward, (x, emb), self.parameters(), self.use_checkpoint
         # )
         if self.use_checkpoint and x.requires_grad:
-            return checkpoint.checkpoint(self._forward, x, emb )
+            return checkpoint.checkpoint(self._forward, x, emb, use_reentrant=True )
         else:
             return self._forward(x, emb) 
 

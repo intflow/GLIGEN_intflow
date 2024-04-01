@@ -9,6 +9,7 @@ import multiprocessing
 import math
 import numpy as np
 import random 
+import torchvision.transforms.functional as F
 
 
 VALID_IMAGE_TYPES = ['.jpg', '.jpeg', '.tiff', '.bmp', '.png']
@@ -26,7 +27,52 @@ def check_filenames_in_zipdata(filenames, ziproot):
     samples = set(samples)
     assert filenames.issubset(samples), 'Something wrong with your zip data'
 
+def draw_rotated_boxes(img, rbboxes, width=2, color="green"):
+    draw = ImageDraw.Draw(img)
+    for rbbox in rbboxes:
+        cx, cy, w, h, angle = rbbox  # Assuming these are pixel values
+        box = calculate_rotated_box(cx, cy, w, h, angle)
+        draw.polygon(box, outline=color, width=width)
+    return img
 
+def calculate_rotated_box(cx, cy, w, h, angle):
+    """
+    Calculate the coordinates of the four corners of a rotated rectangle.
+
+    Args:
+    - cx (float): Center x coordinate.
+    - cy (float): Center y coordinate.
+    - w (float): Width of the rectangle.
+    - h (float): Height of the rectangle.
+    - angle (float): Rotation angle in degrees.
+
+    Returns:
+    - List of tuples, where each tuple contains the x and y coordinates of a corner.
+    """
+    # Convert angle to radians
+    theta = np.radians(angle)
+    
+    # Pre-calculate rotation matrix components
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    
+    # Define the rectangle corners relative to the center
+    half_w, half_h = w / 2, h / 2
+    corners = [
+        (-half_w, -half_h),  # Top-left
+        (half_w, -half_h),   # Top-right
+        (half_w, half_h),    # Bottom-right
+        (-half_w, half_h)    # Bottom-left
+    ]
+    
+    # Rotate and translate each corner point
+    rotated_corners = []
+    for x, y in corners:
+        x_rot = cx + x * cos_theta - y * sin_theta
+        y_rot = cy + x * sin_theta + y * cos_theta
+        rotated_corners.append((x_rot, y_rot))
+    
+    return rotated_corners
 
 def draw_points(img, points):
     colors = ["red", "yellow", "blue", "green", "orange", "brown", "cyan", "purple", "deeppink", "coral", "gold", "darkblue", "khaki", "lightgreen", "snow", "yellowgreen", "lime"]
@@ -144,18 +190,40 @@ class BaseDataset(torch.utils.data.Dataset):
         return zip_file
 
 
-    def vis_getitem_data(self, index, name="res.png"):
-        out = self[index]
+    # def vis_getitem_data(self, index, name="res.png"):
+    #     out = self[index]
 
-        img =    torchvision.transforms.functional.to_pil_image( out["image"]*0.5+0.5 )
-        canvas = torchvision.transforms.functional.to_pil_image( torch.ones_like(out["image"])*0.2   )
+    #     img =    torchvision.transforms.functional.to_pil_image( out["image"]*0.5+0.5 )
+    #     canvas = torchvision.transforms.functional.to_pil_image( torch.ones_like(out["image"])*0.2   )
+    #     W, H = img.size
+    #     assert W==H
+    #     caption = out["caption"]
+    #     print(caption)
+    #     print(" ")
+    #     draw_points( canvas, out["points"]*W ).save(name)   
+
+    def vis_getitem_data(self, out, name="res.png"):
+        img = F.to_pil_image(out["image"] * 0.5 + 0.5)
+        canvas = F.to_pil_image(torch.ones_like(out["image"]) * 0.2)
         W, H = img.size
-        assert W==H
-        caption = out["caption"]
-        print(caption)
-        print(" ")
-        draw_points( canvas, out["points"]*W ).save(name)   
+        assert W == H
+        caption = out.get("caption", "")
+        
+        if "rbboxes" in out:
+            # Draw rbboxes on the canvas
+            canvas = draw_rotated_boxes(canvas, out["rbboxes"])
 
+        if "points" in out:
+            # Draw points on the canvas
+            canvas = draw_points(canvas, out["points"] * W)
+            
+        if caption:
+            print(caption)
+            print(" ")
+
+        canvas.save(name)
+        return canvas
+        
 
     def transform_image(self, pil_image):
         if self.random_crop:

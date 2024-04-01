@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("--DATA_ROOT", type=str,  default="/data/GLIGEN_DATA", help="path to DATA")
     parser.add_argument("--OUTPUT_ROOT", type=str,  default="/data/GLIGEN_OUTPUT", help="path to OUTPUT")
 
-    parser.add_argument("--name", type=str,  default="efc20k_rbbox", help="experiment will be stored in OUTPUT_ROOT/name")
+    parser.add_argument("--name", type=str,  default="efc20k_rbbox_train", help="experiment will be stored in OUTPUT_ROOT/name")
     parser.add_argument("--seed", type=int,  default=123, help="used in sampler")
     parser.add_argument("--local_rank", type=int, default=0)
     parser.add_argument("--yaml_file", type=str,  default="configs/efc20k_text_rbbox.yaml", help="paths to base configs.")
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--weight_decay", type=float,  default=0.0, help="")
     parser.add_argument("--warmup_steps", type=int,  default=10000, help="")
     parser.add_argument("--scheduler_type", type=str,  default='constant', help="cosine or constant")
-    parser.add_argument("--batch_size", type=int,  default=1, help="")
+    parser.add_argument("--batch_size", type=int,  default=16, help="")
     parser.add_argument("--workers", type=int,  default=1, help="")
     parser.add_argument("--official_ckpt_name", type=str,  default="sd-v1-4.ckpt", help="SD ckpt name and it is expected in DATA_ROOT, thus DATA_ROOT/official_ckpt_name must exists")
     parser.add_argument("--ckpt", type=lambda x:x if type(x) == str and x.lower() != "none" else None,  default=None, 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--enable_ema', default=False, type=lambda x:x.lower() == "true")
     parser.add_argument("--ema_rate", type=float,  default=0.9999, help="")
     parser.add_argument("--total_iters", type=int,  default=500000, help="")
-    parser.add_argument("--save_every_iters", type=int,  default=1, help="")
+    parser.add_argument("--save_every_iters", type=int,  default=2500, help="")
     parser.add_argument("--disable_inference_in_training", type=lambda x:x.lower() == "true",  default=False, help="Do not do inference, thus it is faster to run first a few iters. It may be useful for debugging ")
 
 

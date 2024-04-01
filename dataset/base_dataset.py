@@ -8,6 +8,7 @@ import multiprocessing
 import math
 import numpy as np
 import random 
+import torchvision.transforms.functional as F
 
 
 VALID_IMAGE_TYPES = ['.jpg', '.jpeg', '.tiff', '.bmp', '.png']
@@ -35,6 +36,67 @@ def draw_box(img, boxes):
         # draw.rectangle([box[0], box[1], box[2], box[3]], outline ="red", width=2) # x0 y0 x1 y1 
     return img 
 
+def draw_rotated_boxes(img, rbboxes, width=2, color="green"):
+    draw = ImageDraw.Draw(img)
+    for rbbox in rbboxes.cpu().numpy():
+        cx, cy, w, h, angle = rbbox  # Assuming these are pixel values
+        box = calculate_rotated_box(cx, cy, w, h, angle)
+        draw.polygon(box, outline=color, width=width)
+    return img
+
+def calculate_rotated_box(cx, cy, w, h, angle):
+    """
+    Calculate the coordinates of the four corners of a rotated rectangle.
+
+    Args:
+    - cx (float): Center x coordinate.
+    - cy (float): Center y coordinate.
+    - w (float): Width of the rectangle.
+    - h (float): Height of the rectangle.
+    - angle (float): Rotation angle in degrees.
+
+    Returns:
+    - List of tuples, where each tuple contains the x and y coordinates of a corner.
+    """
+    # Convert angle to radians
+    theta = np.radians(angle)
+    
+    # Pre-calculate rotation matrix components
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    
+    # Define the rectangle corners relative to the center
+    half_w, half_h = w / 2, h / 2
+    corners = [
+        (-half_w, -half_h),  # Top-left
+        (half_w, -half_h),   # Top-right
+        (half_w, half_h),    # Bottom-right
+        (-half_w, half_h)    # Bottom-left
+    ]
+    
+    # Rotate and translate each corner point
+    rotated_corners = []
+    for x, y in corners:
+        x_rot = cx + x * cos_theta - y * sin_theta
+        y_rot = cy + x * sin_theta + y * cos_theta
+        rotated_corners.append((x_rot, y_rot))
+    
+    return rotated_corners
+
+def draw_points(img, points):
+    colors = ["red", "yellow", "blue", "green", "orange", "brown", "cyan", "purple", "deeppink", "coral", "gold", "darkblue", "khaki", "lightgreen", "snow", "yellowgreen", "lime"]
+    colors = colors * 100
+    draw = ImageDraw.Draw(img)
+    
+    r = 3
+    for point, color in zip(points, colors):
+        if point[0] == point[1] == 0:
+            pass 
+        else:
+            x, y = float(point[0]), float(point[1])
+            draw.ellipse( [ (x-r,y-r), (x+r,y+r) ], fill=color   )
+        # draw.rectangle([box[0], box[1], box[2], box[3]], outline ="red", width=2) # x0 y0 x1 y1 
+    return img 
 
 
 def to_valid(x0, y0, x1, y1, image_size, min_box_size):
@@ -111,30 +173,28 @@ class BaseDataset(torch.utils.data.Dataset):
         return zip_file
 
 
-    def vis_getitem_data(self, index=None, out=None, return_tensor=False, name="res.jpg", print_caption=True):
-    
-        if out is None:
-            out = self[index]
-
-        img = torchvision.transforms.functional.to_pil_image( out["image"]*0.5+0.5 )
-        canvas = torchvision.transforms.functional.to_pil_image( torch.ones_like(out["image"]) )
+    def vis_getitem_data(self, out, name="res.png"):
+        img = F.to_pil_image(out["image"] * 0.5 + 0.5)
+        canvas = F.to_pil_image(torch.ones_like(out["image"]) * 0.2)
         W, H = img.size
+        assert W == H
+        caption = out.get("caption", "")
+        
+        if "rbboxes" in out:
+            # Draw rbboxes on the canvas
+            canvas = draw_rotated_boxes(canvas, out["rbboxes"])
 
-        if print_caption:
-            caption = out["caption"]
+        if "points" in out:
+            # Draw points on the canvas
+            canvas = draw_points(canvas, out["points"] * W)
+            
+        if caption:
             print(caption)
             print(" ")
 
-        boxes = []
-        for box in out["boxes"]:    
-            x0,y0,x1,y1 = box
-            boxes.append( [float(x0*W), float(y0*H), float(x1*W), float(y1*H)] )
-        img = draw_box(img, boxes)
-        
-        if return_tensor:
-            return  torchvision.transforms.functional.to_tensor(img)
-        else:
-            img.save(name)   
+        canvas.save(name)
+        return canvas
+
 
 
     def transform_image(self, pil_image):
